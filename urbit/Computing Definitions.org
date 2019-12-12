@@ -1,0 +1,73 @@
+#+BRAIN_CHILDREN: 0CA77941-CA17-4F5E-BBD2-51A5ED3C11A5 133845E2-85AB-4BBC-8BAE-06735C0D0EF4 59C24CF7-102E-4395-912E-9D23E864DA07 9848FDF8-506F-498B-9333-E3ED080D1038 EC22084F-9429-45B5-9EF3-AEC03D25D4D1
+
+#+BRAIN_FRIENDS: 990ABDD7-E231-44FD-A960-68927FF8A108
+
+
+* Homoiconic
+  :PROPERTIES:
+  :ID:       B411A23F-561E-4CAA-B282-A768F071599E
+  :END:
+Languages which have the same external and internal representations are homoiconic.
+
+- Similar definitions (but maybe not accurate): 
+  - The syntax is similar to the program structure.
+  - The language treats code as data.
+  - Unlocks the possibility of metaprogramming.
+
+- [[https://www.expressionsofchange.org/dont-say-homoiconic/][Argument]]: the idea of 'code as data' does not map directly to the
+  concept of homoiconic. Cites implementation optimizations and that
+  in an idea something like lisp is represented to the programmer not
+  as s-expressions but as a text file. It is only after parsing that
+  file do we have s-expressions.
+  - Seems a bit pedantic, but I think the need for homoiconicity to be
+    defined by degree is real.
+  - Regarding the external representation: parsing of s-expressions is
+    trivial, as is the reverse operation of converting s-expressions
+    to some printable form. The use of explicit brackets for all
+    list-expressions ensures that the structure of s-expressions is
+    always explicitly visible. Thus, to say that the external
+    representation of a Lisp program is an s-expression holds at least
+    some truth.
+  - Regarding the internal representation: even though an actual Lisp
+    interpreter might be optimized, its operational semantics are
+    defined in terms of a virtual machine that operates on
+    s-expressions. Any properly implemented optimization will have the
+    same behavior (barring performance) as its non-optimized
+    counterpart. Thus, from the perspective of the programmer the
+    internal representation is still the s-expression. Thus, to say
+    that the internal representation is an s-expression holds some truth
+    as well
+
+* Combinator Interpreter
+  :PROPERTIES:
+  :ID:       0CA77941-CA17-4F5E-BBD2-51A5ED3C11A5
+  :END:
+
+
+* Parser
+  :PROPERTIES:
+  :ID:       133845E2-85AB-4BBC-8BAE-06735C0D0EF4
+  :END:
+Checks that the syntax is correct according the rules of the associated formal grammer.
+
+Facilitates the writing of compilers.
+
+* Parsing Combinator
+  :PROPERTIES:
+  :ID:       59C24CF7-102E-4395-912E-9D23E864DA07
+  :END:
+Higher order function that accepts several parsers as input, returning a new parser as output. 
+
+* Combinator
+  :PROPERTIES:
+  :ID:       9848FDF8-506F-498B-9333-E3ED080D1038
+  :END:
+A function with no free variables - it refers only to its arguments.
+
+Also refers to the Combinator Pattern, where usually there is some type T, some functions for constructing "primitive" values of type T, and some "combinators" which can combine values of type T in various ways to build up more complex values of type T. 
+
+* Point Free
+  :PROPERTIES:
+  :ID:       EC22084F-9429-45B5-9EF3-AEC03D25D4D1
+  :END:
+a 'points-free' definition of a function is one which does not explicitly mention the points (values) of the space on which the function acts

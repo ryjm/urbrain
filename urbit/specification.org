@@ -1,0 +1,2027 @@
+#+TITLE: Urbit
+
+* Layout
+:PROPERTIES:
+:ID:       71A5F035-186F-4D18-8A29-2DC7808A0082
+:END:
+** sur
+:PROPERTIES:
+:ID:       1F93A41F-5838-4207-823D-189D9ED1EFE1
+:END:
+ `/sur` is the available structures. In the shell, can be set with `/-`. 
+
+* Concepts
+:PROPERTIES:
+:ID:       E6EC8DF2-EA25-43D5-BF80-4D65ED19E29B
+:END:
+
+** Ships
+:PROPERTIES:
+:ID:       F586322A-8926-46AD-B732-FBD011AF3377
+:END:
+The urbit virtual computer. Each ship is associated with a unique number that is its address, name, and cryptographic identity. Each ship name is written in base-256 format, where each digit is a syllable.
+* Nock
+:PROPERTIES:
+:ID:       990ABDD7-E231-44FD-A960-68927FF8A108
+:BRAIN_FRIENDS: Computing%20Definitions
+:BRAIN_CHILDREN:
+:END:
+<<<Nock>>>
+Nock is a Turing-complete function that maps a cell ={subject formula}= into a noun called =product=, where =subject= is data, =formula= is code, and =product= is the result. Notice that by definition Nock only deals with nouns, and nouns are either cells or atoms. 
+
+Designed to be used with a higher level type system, and thus does not have low level types.
+
+It is a homoiconic combinator language.
+
+The interesting parts of Nock come from how it specifies the interpretation of cells called cores.
+** Core (nock)
+:PROPERTIES:
+:ID:       8658A3BE-3D11-4098-A05A-4AE2B2B2729F
+
+:END:
+Nock suggests some interesting design patterns based around cores. 
+** Rules
+:PROPERTIES:
+:ID:       C27381BD-A243-4631-8435-61C379B40A97
+:END:
+Nock is a combinator interpreter defined by the spec below.
+
+This pseudocode is a system of problem reduction rules. Variables match any
+noun; the first rule from the top matches.
+
+A problem that reduces to itself is an infinite loop, hence a crash ("bottom" in
+formal logic). A real interpreter can detect this crash and produce an
+out-of-band value instead.
+
+#+begin_src
+?[a b]           0
+?a               1
++[a b]           +[a b]
++a               1 + a
+=[a a]           0
+=[a b]           1
+=a               =a
+
+/[1 a]           a
+/[2 a b]         a
+/[3 a b]         b
+/[(a + a) b]     /[2 /[a b]]
+/[(a + a + 1) b] /[3 /[a b]]
+/a               /a
+
+*[a [b c] d]     [*[a b c] *[a d]]
+
+*[a 0 b]         /[b a]
+*[a 1 b]         b
+*[a 2 b c]       *[*[a b] *[a c]]
+*[a 3 b]         ?*[a b]
+*[a 4 b]         +*[a b]
+*[a 5 b]         =*[a b]
+
+*[a 6 b c d]     *[a 2 [0 1] 2 [1 c d] [1 0]
+                   2 [1 2 3] [1 0] 4 4 b]
+*[a 7 b c]       *[a 2 b 1 c]
+*[a 8 b c]       *[a 7 [[7 [0 1] b] 0 1] c]
+*[a 9 b c]       *[a 7 c 2 [0 1] 0 b]
+*[a 10 [b c] d]  *[a 8 c 7 [0 3] d]
+*[a 10 b c]      *[a c]
+
+*a               *a
+#+end_src
+
+*** Instructions
+:PROPERTIES:
+:ID:       1E33C867-D93B-4B3A-8D25-4907A2243667
+:BRAIN_FRIENDS: 01D48B5C-160C-4E44-AAC8-0D27A125F688 107619CD-60A5-404D-81FD-45CC5A7B3184
+:END:
+<<<nock instructions>>>
+- A valid formula is always a cell
+  - If the head of the formula is also a cell, then both its head and tail are
+    treated as formulas and resolved against the subject.
+- 0-5 provide all the necessary computational functionality of nock
+- 6-10 are macros
+**** 0 slot
+:PROPERTIES:
+:ID:       2F06BF04-2BA3-43B8-B951-117D629CE64D
+:BRAIN_FRIENDS: CC0401A2-D16A-45C3-8947-2CCE579BE37E
+:END:
+This is the the slot instruction, which is Nock's tree-addressing instruction.
+#+begin_src hoon
+  =a [[4 5] [6 14 15]]
+  =b [7]
+  .*(a [0 b])
+
+  > [14 15]
+#+end_src
+**** 1 constant
+:PROPERTIES:
+:ID:       5B54A046-D3E9-4108-BDD1-324B0DABDAFB
+:END:
+Constant instruction. Just produces the argument.
+
+#+begin_src hoon
+  .*(42 [1 153 218])
+
+  > [153 218]
+#+end_src
+**** 2 evaluate
+:PROPERTIES:
+:ID:       71EA8F5A-F00E-45CE-A201-7F12CCA3E47C
+:END:
+<<<eval instruction>>>
+
+#+begin_src hoon
+  ,*[a 2 b c]  *[*[a b] *[a c]]
+#+end_src
+
+Important because unlike lisp nock has no ~apply~.
+
+#+begin_src hoon
+  .*(77 [2 [1 42] [1 1 153 218]])
+
+  > [153 218]
+#+end_src
+
+The 'extra' 1 is there to produce the constant ~[1 153 218]~
+**** 3, 4, 5 axiomatic functions
+:PROPERTIES:
+:ID:       6D2FAE6D-2B4E-4980-9675-E10AB32D3630
+:END:
+- These apply the axiomatic functions to the product.
+  #+begin_src sh
+  ~zod:dojo> .*(57 [0 1])
+  57
+  ~zod:dojo> .*([132 19] [0 3])
+  19
+  ~zod:dojo> .*(57 [4 0 1])
+  58
+  ~zod:dojo> .*([132 19] [4 0 3])
+  20
+  #+end_src
+**** Macros
+:PROPERTIES:
+:ID:       D4154954-E8D8-4A5D-9E0B-60FDF3032997
+:END:
+#+begin_src hoon
+  ,*[a 6 b c d]     *[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]
+  ,*[a 7 b c]       *[a 2 b 1 c]
+  ,*[a 8 b c]       *[a 7 [[7 [0 1] b] 0 1] c]
+  ,*[a 9 b c]       *[a 7 c 2 [0 1] 0 b]
+  ,*[a 10 [b c] d]  *[a 8 c 7 [0 3] d]
+  ,*[a 10 b c]      *[a c]
+#+end_src
+***** 6 if-then-else
+:PROPERTIES:
+:ID:       0FD8E505-2611-4F15-92E9-417537ED5354
+:END:
+#+begin_src hoon
+  ,*[a 6 b c d]      *[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]
+#+end_src
+
+If ~b~ evaluates to ~0~, we produce ~c~; if ~b~ evaluates to ~1~,
+we produce ~d~; otherwise, we crash.
+****** Questions
+:PROPERTIES:
+:ID:       3C6B4FF6-FB9E-4FBD-9FD2-91B8F2542E48
+:END:
+#+begin_quote
+But we need the full power of the funk, because if `b` produces,
+say, `7`, all kinds of weirdness will result.  We'd really like
+`6` to just crash if the test product is not a boolean.  How can
+we accomplish this?  This is an excellent way to prove to
+yourself that you understand Nock: figure out what the real `6`
+does.  Or you could just agree that `6` is "if," and move on.
+#+end_quote
+
+What does the real =6= do?
+#+begin_src hoon
+  ,*[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]
+
+  [2 [1 c d] [[1 0] 2 [1 2 3] [1 0] 4 4 b]]
+#+end_src
+=[1 c d]= evaluates to [c d] and is used as the subject for the other more complicated one. Now the distribution property comes into play, with a head of =[1 0]= (which will give us a slot instruction) and a tail of =[2 [1 2 3] [1 0] 4 4 b]=. This applies =[[1 0] 4 4 b]= with a subject of =[2 3]=. =[1 0]= just produces =0=, and =[4 4 b]= produces =b + 2= -  so if b is not 0 or 1 nock will crash, as the subject is =[2 3]=. If =b= is 0 or 1, we retrieve =2= or =3= which then becomes the slot containing =c= or =d=
+
+***** 7 compose
+:PROPERTIES:
+:ID:       0F2392F8-8362-4459-A82B-5BAFB5FB889E
+:END:
+<<<compose instruction>>>
+
+~b~ will be nocked against ~a~ and then ~c~ will be nocked against the resultant product. The ~1~ is essential and basically quotes ~c~.
+
+#+begin_src hoon
+*[a 7 [[7 [0 1] b] 0 1] c]
+*[a 2 [[7 [0 1] b] 0 1] 1 c]
+
+*[*[[7 [0 1] b] 0 1] *[1 c]]
+*[*[[7 [0 1] b] 0 1] c]
+#+end_src hoon
+***** 8 extend
+:PROPERTIES:
+:ID:       EBF2A118-87C7-4F39-B691-7DF86316E607
+:END:
+<<<extend instruction>>>
+
+~8~ evaluates ~c~ against an ordered pair of the product of ~a~ and ~b~ AND the original subject.
+****** Question
+:PROPERTIES:
+:ID:       9DD09A2F-8287-4CCF-8203-00A0A7E41AE9
+:END:
+:RESOURCES:
+:END:
+#+begin_src hoon
+  ,*[a 8 b c]  *[a 7 [b 0 1] c]
+#+end_src
+
+We can't just define it as this? 
+#+begin_src hoon
+  ,*[a 7 [b 0 1] c]
+  ,*[a 2 [b 0 1] 1 c]
+  ,*[*[a [b 0 1]] *[a 1 c]]
+#+end_src
+
+The last line then has ~[b 0 1]~ as the formula. This seems like it could work, since if ~b~ is ~[4 0 1]~ and ~a~ is 42 then we would have
+
+#+begin_src hoon
+  ,*[*[a [4 0 1] 0 1] *[a 1 c]]
+  ,*[[*[42 4 0 1] 42] c]
+  ,*[[43 42] c]
+#+end_src
+
+which is what we would expect.
+
+#+begin_src hoon
+  ::  wrong
+  ,*[a 8 b c]  *[a 7 [b 0 1] c]
+  ::  right
+  ,*[a 8 b c]  *[a 7 [[7 [0 1] b] 0 1] c]
+#+end_src
+******* TODO Solve this
+:PROPERTIES:
+:ID:       D1EB3973-A690-4C42-AC9D-5B9252DC3AF4
+:END:
+***** 9 invoke
+:PROPERTIES:
+:ID:       A4BAE3C9-080D-4F0C-ABA5-945C0C50F2AF
+:END:
+<<<invoke instruction>>>
+#+begin_src hoon
+  ,*[a 9 b c]  *[a 7 c 2 [0 1] 0 b]
+#+end_src
+- calling convention
+- this produces a noun with ~c~ containing both code and data - this is called a <<<core>>>. We use this core as the subject and evaluate the formula at slot ~b~.
+
+
+
+
+***** 10 compose
+:PROPERTIES:
+:ID:       916901EC-C812-40CD-BFE7-14CBFB1A9BB9
+:END:
+<<<hint>>> <<<hints>>>
+
+- Hints give us a way to pass information to the interpreter that may or may not be used. For example, we could use hints to pass information that the interpreter can use to compute the expression more efficiently.
+*** Tree Addressing 
+:PROPERTIES:
+:ID:       CC0401A2-D16A-45C3-8947-2CCE579BE37E
+:BRAIN_FRIENDS: 2F06BF04-2BA3-43B8-B951-117D629CE64D
+:END:
+<<<slot>>>
+Every noun is a binary tree and we use ~/~ to impose an address space on the noun, where each non-zero atom is mapped to a tree position. 
+
+Each number is an atom; each dot is a cell. Nouns are simply binary trees whose leaves are numbers.
+
+#+begin_example
+[[7 13] [87 65]]:
+
+      .
+    /   \
+   .     .
+  / \   / \
+ 7  13 87  65
+
+#+end_example
+
+We then define the address of a noun recursively, where 1 is the entire noun and the head and tail of a cell at address =n= can be found at address =2n= and =2n+1= respectively. Note that we don't need to define the case when the noun at address =n= is an atom; nouns are binary trees where the leaves are atoms, since atoms are simply unsigned integers.
+**** Binary Explanation
+:PROPERTIES:
+:ID:       EB8FC09B-FF1F-4169-8D72-A0420A060791
+:BRAIN_FRIENDS: 6DC2B657-3535-4226-B4F4-A1C4930D6F7B
+:END:
+For those who prefer to think in terms of binary numbers, there is another (equivalent) way to understand of noun addressing.  As before, the root of the binary tree (i.e., the whole noun) is at address `1`. For the node of a tree at any address `b`, where `b` is a binary number, you get the address of the head by concatenating a `0` to the end of `b`; and to get the tail, concatenate a `1` to the end. For example, the head of the node at binary address `111` is at `1110`, and the tail is at `1111`.
+
+The trick is that appending a `0` to the end of a binary number has the effect of doubling the original decimal representation. `10` is 2, `100` is 4, `1000` is 8, `101` is 5, `1010` is 10. Notice that this means the decimal representation of the address of the head of any cell is always even, and the tail is always odd! 
+
+*** Built-in functions
+:PROPERTIES:
+:ID:       CA136684-C43F-4AD8-866A-83909F163456
+:END:
+- ~*~ - Nock function
+- ~?~ - Testing whether a noun is an atom or a cell.
+- ~=~ - equality test
+- ~+~ - increment an atom.
+** Data Model
+:PROPERTIES:
+:ID:       A70D3157-57BB-42CF-988A-3D8FCEFA877C
+:END:
+There is only one data model in Nock - the noun.
+*** noun
+:PROPERTIES:
+:ID:       4CE81E18-6D3E-4A6A-B320-046A96691E31
+:BRAIN_CHILDREN:
+:BRAIN_FRIENDS: 27D880CA-23D6-481D-8015-AD2CA3E809B0
+:END:
+<<<Noun>>>
+
+In english, a noun can mean two things - a name that identifies a
+class of things, or a name referring to a single one of those
+things. That is very close to the technical definition.
+
+A noun is either an atom or a cell.
+**** atom
+:PROPERTIES:
+:ID:       F9EFB83C-F57C-4176-B1D8-C74CBBC79C39
+:BRAIN_FRIENDS: D329F433-EE7C-4985-B5C6-BF2C94FAD781
+:END:
+<<<Atom>>>
+
+Naming: an atom is the building block of systems, so you would expect atoms in hoon to basically be the 'base thing' - one atom cannot be written as two atoms, because then that would be a cell (though cells are not restricted to two atoms, but to two nouns).
+
+- An Atom is an unsigned integer.
+- Strings are commonly represented as atoms, with the least significant bit coming first. External type information (outside of nock, such as hoon type) is needed for us to know to print string atoms as strings.
+
+
+**** cell
+:PROPERTIES:
+:ID:       564865FE-62CC-43B7-A8BD-C741D80AFCD3
+:END:
+:RESOURCES:
+:END:
+<<<Cell>>>
+A cell is an ordered pair of nouns. 
+
+This specification imposes a binary tree structure onto the noun data model. 
+* Hoon (Language)
+:PROPERTIES:
+:ID:       5D07B6F3-4CD6-470A-8584-25AD22852275
+:BRAIN_CHILDREN: 77987407-0002-4DC4-AA3F-F138A8D13D64
+:END:
+:RESOURCES:
+- [[/Users/jake.miller/Documents/dev/git/mars/urbit/docs][git repo]]
+- [[http://localhost:8443/docs/hoon/][docs]]
+:END:
+
+
+** Design
+:PROPERTIES:
+:ID:       206105CD-0708-4A6A-9719-7862E0C88F5C
+:BRAIN_FRIENDS:
+:END:
+Hoon's odd concept naming scheme is based around the idea that the names of concepts should not mislead the programmer.
+
+The normal jargon of programming does not map well onto hoon's semantics, since there are too many abstractions in hoon that are similar to concepts that already have traditional names, but differ in some fundamental way.
+
+Hoon was designed under the assumption that using the traditional names would hinder a fundamental understanding of the system - adopting an entirely different naming scheme makes it more difficult to make mistakes based off of these cached thoughts.
+*** Naming
+:PROPERTIES:
+:ID:       0DDCABF0-A8A5-4456-B217-0EBD168190FE
+:END:
+**** ap
+:PROPERTIES:
+:ID:       5EFFF0A1-F2DB-47F4-B882-48B34431EB49
+:BRAIN_FRIENDS: 61CE2D1A-FCAF-4716-AE5D-E0568CB95D37
+:END:
+Apply engine.
+**** abet
+:PROPERTIES:
+:ID:       263BFB9D-3B2B-4621-9470-78409356FA0E
+:BRAIN_FRIENDS: 61CE2D1A-FCAF-4716-AE5D-E0568CB95D37
+:END:
+Resolve. Abet means to "assist in carrying out plan".
+** Definitions
+:PROPERTIES:
+:ID:       19F0C785-E1E6-493D-98DA-23E239F61111
+:BRAIN_CHILDREN:
+:BRAIN_FRIENDS:
+:END:
+*** term
+:PROPERTIES:
+:ID:       D8F9E608-E51B-4E4D-BEBA-461B6894E473
+:END:
+These are strings preceded with a % and made up of lower-case letters, numbers, and hyphens, i.e., 'kebab case'. 
+*** noun (hoon)
+:PROPERTIES:
+:ID:       27D880CA-23D6-481D-8015-AD2CA3E809B0
+:BRAIN_FRIENDS: 4CE81E18-6D3E-4A6A-B320-046A96691E31
+:END:
+A noun in hoon is basically the same as a noun in nock with bracket ~[
+]~ syntax. The brackets nest right.
+
+**** mutating nouns
+:PROPERTIES:
+:ID:       D482CD66-1ED5-45BF-9774-E3DC13D089ED
+:BRAIN_FRIENDS: 71B028AF-2290-485F-8FE7-B00F0C224044
+:END:
+:RESOURCES:
+:END:
+Nouns can be mutated by describing the mutation in parenthesis following the face label.
+
+#+begin_src hoon
+  > a
+  [g=37 b=[%hi c=.6.28 d=~m45] h=0xdead.beef]
+
+  > a(g 44)
+  [g=44 b=[%hi c=.6.28 d=~m45] h=0xdead.beef]
+
+  > a(b 'hello world!')
+  [g=37 b='hello world!' h=0xdead.beef]
+#+end_src
+
+The expression `c(a 99)` produces a core exactly like `c` except that the value of `a` in the payload is `99` instead of `12`.  But when we evaluate `a.c` we still get the original value, `12`.  Why?  The value of `c` in the dojo is bound to the original core value, and will stay that way until we unbind `c` or bind it to something else.
+*** limbs
+:PROPERTIES:
+:ID:       ECFEA2D3-C6AF-4929-96A0-EB5A8AB03DD5
+:BRAIN_FRIENDS: 6A633B48-5344-4DB9-AF29-C6EB8B71E657 01D48B5C-160C-4E44-AAC8-0D27A125F688 17E04776-A3BC-45B6-A742-3A6820397C76
+:BRAIN_CHILDREN: A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788
+:END:
+:RESOURCES:
+[[%5B%5Bfile:~/Documents/dev/git/urbit/docs/docs/urbyte/2.md::An%2520expression%2520like%2520the%2520label%2520`x`%2520or%2520the%2520axis%2520`+2`,%2520which%5D%5Burbyte def%5D%5D][urbyte]]    
+:END:
+<<<Limbs>>>
+/Limbs/ are expressions used to delineate the /subject/. Since the subject is just a noun, and fragments of a noun are nouns themselves, those fragments can be thought of as binary trees that "stick out" - hence, limbs.
+
+They look like OO style attributes, but they do not make use of a symbol table and are written right to left.
+
+
+
+**** Examples
+:PROPERTIES:
+:ID:       8CE7DFA7-1C8B-4648-8EAE-26D3FCEF595F
+:END:
+    - A /label/ like =x= in 
+      #+begin_src hoon
+        =a [x=42 y=[p=%foo q=.6.28 r=~m45] z=0xdead.beef]
+      #+end_src 
+      - An /axis/ like =+2=
+
+**** leg
+:PROPERTIES:
+:ID:       7F6A1738-34D2-4536-90FD-F336637D25FE
+:BRAIN_FRIENDS: 0440A4AA-D27F-43E7-8234-62D1A392588C
+:END:
+*A limb used to store data*
+
+**** arm
+:PROPERTIES:
+:ID:       0440A4AA-D27F-43E7-8234-62D1A392588C
+:BRAIN_FRIENDS: 1E7D8928-CFFA-4B90-A5B8-3B106145E1C6 7F6A1738-34D2-4536-90FD-F336637D25FE CB723EF2-846D-42A1-BB3F-3F9D991D316B 329FCBCF-659A-45FC-B34F-2976F3699C3D 107619CD-60A5-404D-81FD-45CC5A7B3184
+:BRAIN_PARENTS: EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08
+:END:
+*A limb used to carry out substantive computations*
+
+An arm is a fragment of the subject that is a Nock formula. Arms are critical for creating and evaluating functions in hoon. They bridge the gap between Nock formulas and hoon functions.
+
+Arms expect the subject to be shaped like a core, and the hoon of the arm is evaluated to a nock formula.
+
+An arm's parent core is the one whose battery contains that arm, and against which it is evaluated. *We get hoon functions by allowing arms to be evaluated against /modified/ versions of their parent core.* These variations are permitted in the part of the payload called the sample.
+
+
+An arm that produces a gate is the hoon equivalent of a conventional method, but it's more like a computed attribute whose value is a lambda.
+                          
+
+***** sample
+:PROPERTIES:
+:ID:       9E3898B8-F5EB-4454-9CAB-05C7093936AA
+:BRAIN_FRIENDS: B7E0101C-5736-47AA-9EBC-B2B60244E0B0
+:END:
+Part of the core that can be varied. Used by arms to store arguments passed to hoon functions. When a function is called with arguments, the default values of the sample are replaced with the argument values, and the arm is evaluated against the modified core.
+
+***** context
+:PROPERTIES:
+:ID:       7F9A96F5-84D6-4B9F-865E-9FB650B12917
+:END:
+Contains other data that may be necessary for the arm to evaluate correctly. Unlike the sample, it cannot be modified.
+
+In a gate, always located at +7 of the gate - the tail of the tail.
+
+Usually contains another core.
+
+***** arm resolution
+:PROPERTIES:
+:ID:       057F2543-450C-4767-A0D2-A477C247BA12
+:BRAIN_CHILDREN: FBE6BCD1-68BA-4FDB-A2E5-FBD37DFCE6D1 C29D0A92-AFA9-46D1-A5BB-54AF5E104601
+:BRAIN_FRIENDS: 4DE9E01F-F069-4029-9FD2-1E8B6ADDFCB5 A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788 A71FA7EF-A3FE-462A-A79E-66E81DC7DE50
+:END:
+:RESOURCES:
+:END:
+Some limb expressions treat arms differently than legs. Instead of returning the fragment of the subject, they evaluate the arm with its parent core as the subject.
+
+When Hoon infers that the data type of a certain noun is 'core', it retains the arm names as part of the type information of the core. This is important; Hoon can't evaluate an arm unless it knows what core to use as the subject. Hoon is designed so that arm evaluation cannot happen _except_ when a name search is resolved in the core's type information. That way it always knows which core is used to evaluate each arm.
+
+****** Collisions
+:PROPERTIES:
+:ID:       988005BD-35F6-4C23-B0EA-B94FF6BC1069
+:END:
+Hoon does not automatically know whether a name is a face or an arm name, and so faces with the same names as arms can potentially shadow each other.
+*** surfaces
+:PROPERTIES:
+:ID:       C54AEB89-FC86-48F8-BAB2-8A18F3DA9E93
+:END:
+<<<Surfaces>>>
+These are what you would call 'alternate subjects' or something. You can force a noun to use a specific subject, and that specific subject is called a /surface/. 
+The 'attributes' of a surface are limbs.
+**** Notes
+:PROPERTIES:
+:ID:       18E29931-4B53-43C8-81B7-666A69EC6984
+:END:
+- Putting a surface on a noun (when you set ~=a =[x=42 y=[...]]~) inserts the surface label into the noun's type.
+  - the /surface label itself/ becomes part of the surface's type, i.e the /axis/ limb returns the /surface/ itself.  
+*** subject
+:PROPERTIES:
+:ID:       01D48B5C-160C-4E44-AAC8-0D27A125F688
+:BRAIN_FRIENDS: 1E33C867-D93B-4B3A-8D25-4907A2243667 41C90C6B-A3FC-4833-BA05-593398D14543 ECFEA2D3-C6AF-4929-96A0-EB5A8AB03DD5
+:END:
+<<<Subject>>>
+Since the practical domain of the nock function is a cell (because nock of an atom crashes), we have specific nomenclature for the parts of the cell. The head is called the subject and the tail is called the formula. The result of nocking it is called the product.
+
+A cell is made up of nouns, so the subject must itself be a noun.
+
+Every hoon expression is evaluated relative to some subject - the subject defines the environment in which an expression is evaluated. 
+*** formula
+:PROPERTIES:
+:ID:       107619CD-60A5-404D-81FD-45CC5A7B3184
+:BRAIN_FRIENDS: 1E33C867-D93B-4B3A-8D25-4907A2243667 0440A4AA-D27F-43E7-8234-62D1A392588C
+:END:
+<<<formula>>>
+- The tail of the input cell to the nock function.
+- No atom is a formula.
+*** core
+:PROPERTIES:
+:ID:       EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08
+:BRAIN_FRIENDS: 41C90C6B-A3FC-4833-BA05-593398D14543 3F6D8800-2030-4AC7-9505-45F672088E34 35591A95-E60F-4F01-A6C7-C11E852E253C 8D3AB576-B1F7-4BC4-B138-EC8DC22D58EE B7E0101C-5736-47AA-9EBC-B2B60244E0B0 61CE2D1A-FCAF-4716-AE5D-E0568CB95D37
+:BRAIN_CHILDREN: 0440A4AA-D27F-43E7-8234-62D1A392588C
+:END:
+:RESOURCES:
+:END:
+*Cell with both battery and payload (code and data)*
+
+The payload is a copy of the subject of the core creation expression. This means that any faces defined in that subject can be redefined/removed in a different context, but the core will still work. *The payload stores all the information needed to compute the arms correctly*. 
+
+The closest equivalent in other languages is an object. 
+
+Has attributes called arms. These attributes are functionally computed.
+
+A core looks like =[battery payload]=, where the battery is one or more nock formulas (represented as arms).
+
+**** gate
+:PROPERTIES:
+:ID:       B7E0101C-5736-47AA-9EBC-B2B60244E0B0
+:BRAIN_FRIENDS: 9E3898B8-F5EB-4454-9CAB-05C7093936AA 4AD06831-F191-4E8D-A558-19CE19C4855A EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08 3F6D8800-2030-4AC7-9505-45F672088E34 83D66CCE-7509-48F3-ACF1-9E9172B4F3F3
+:BRAIN_CHILDREN: 3834F6C1-7DB2-4E75-BF1B-7EDE8B89F43C
+:END:
+:RESOURCES:
+:END:
+A gate is a special case of core: a core with one arm whose name is =$=. Using this name in hoon evaluates that arm with its parent core as the subject. The payload is a cell of a sample and a context.
+
+#+begin_src hoon
+  > add
+  <1.vng {{a/@ b/@} <31.ohr 1.jmk $143>}>
+#+end_src
+
+
+Its arm is always located at +2 of the gate. For add, that is =1.vng=, which is a hash of the battery noun. To get the unhashed value:
+
+#+begin_src hoon
+  > +2:add
+  [ 6
+    [5 [1 0] 0 12]
+    [0 13]
+    9
+    2
+    [0 2]
+    [[8 [9 2.540 0 7] 9 2 [0 4] [0 28] 0 11] 4 0 13]
+    0
+    7
+  ]
+#+end_src
+
+These are the Nock instructions for adding two numbers together.
+
+The sample is always at +6 of the gate - the head of gate's tail.
+
+The properties of core creation ensure that the output of a gate depends /solely/ on the input This is because the payload of a core is always /copied/ from the subject of the gate creation expression and the only that changes before arm evaluation is the /sample/ of the payload (which is the argument when the gate is treated as function).
+***** door
+:PROPERTIES:
+:ID:       3834F6C1-7DB2-4E75-BF1B-7EDE8B89F43C
+:BRAIN_PARENTS: B7E0101C-5736-47AA-9EBC-B2B60244E0B0
+:BRAIN_FRIENDS: F506FAB9-2662-4DFE-9D69-27BA6820679A
+:END:
+General case of a gate.
+**** battery
+:PROPERTIES:
+:ID:       1E7D8928-CFFA-4B90-A5B8-3B106145E1C6
+:BRAIN_FRIENDS: 0440A4AA-D27F-43E7-8234-62D1A392588C
+:END:
+Part of the core where Nock formulas are kept. Especially important for arms, as an arm's parent core is the one whose battery contains that arm. 
+*** wings
+:PROPERTIES:
+:ID:       6A633B48-5344-4DB9-AF29-C6EB8B71E657
+:BRAIN_FRIENDS: ECFEA2D3-C6AF-4929-96A0-EB5A8AB03DD5 71B028AF-2290-485F-8FE7-B00F0C224044 A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788 17E04776-A3BC-45B6-A742-3A6820397C76 1100D95B-035D-4C13-A249-0003C1387A66
+:END:
+A *wing* is a limb resolution path into the subject.  A wing expression indicates the path as a series of limb expressions separated by the `.` character.  E.g.,
+
+#+begin_src hoon
+limb1.limb2.limb3
+#+end_src hoon
+
+This definition includes the trivial case of a single limb expression, which means that all limbs are wings and all limb expressions are wing expressions
+
+c.b.a:
+#+begin_src hoon 
+  > c.b.a:[d=0xdad c=0b11 a=[g='hi' b=[c=99 q=22]]]
+  99
+#+end_src
+**** arm in search path
+:PROPERTIES:
+:ID:       C29D0A92-AFA9-46D1-A5BB-54AF5E104601
+:BRAIN_PARENTS: 057F2543-450C-4767-A0D2-A477C247BA12
+:END:
+Arms are raw Nock formulas, and there isn't much reason to follow a search path into those.  There are no faces or other names in arm Nock formulas!  For this reason, when arm names are included in the search path the search behavior is a little different.  Instead of indicating that the search should continue in the arm itself, an arm name indicates that the search should continue in the parent core of arm.  So the meaning of `a.b.add` is, roughly, '`a` in `b` in the parent core of `add`'. 
+
+`add` is an arm that produces the gate for `add` when evaluated. When we use `add` in a search path, the parent core /of the arm/ is searched.
+                                            
+*** hoon
+:PROPERTIES:
+:ID:       ADAB8C59-0EE4-4D03-84C6-FF5D25D7CAD3
+:END:
+:RESOURCES:
+[[file:~/Documents/dev/git/urbit/docs/docs/about/glossary.md::A%20%5B`hoon`%5D(../../hoon/reference/)%20is%20the%20result%20of%20parsing%20a%20Hoon%20source][docs]]
+
+
+
+:END:
+A /hoon/ is the result of parsing a Hoon source into an AST node. 
+It is a tagged union of the form ~[%tag data]~.
+*** mold
+:PROPERTIES:
+:ID:       83D66CCE-7509-48F3-ACF1-9E9172B4F3F3
+:BRAIN_FRIENDS: F808B56D-9A4A-4738-91BA-4242F7E36718 EEB17719-7E14-4136-8989-06685FE8E759 63EEF9CC-4C1C-414D-B13B-5D594CA7F004 B7E0101C-5736-47AA-9EBC-B2B60244E0B0
+:END:
+A gate that helps us build data structures. It is idempotent, i.e (mold (mold x)) = (mold x)
+
+$ *buc* molds are macros designed for making molds. Some macros *bunt* a mold, producing `^~(=>(mold $))`, which produces a constant default value.
+
+The formal range of a mold (the type of its bunt) is called its *icon*. 
+*** coil
+:PROPERTIES:
+:ID:       8D3AB576-B1F7-4BC4-B138-EC8DC22D58EE
+:BRAIN_FRIENDS: EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08 35591A95-E60F-4F01-A6C7-C11E852E253C
+:END:
+`q.q` holds the type of the payload that its core was compiled against. 
+*** bloq
+:PROPERTIES:
+:ID:       55579EE2-12F8-40FE-A63C-C401EF49982C
+:END:
+Atom representing a blocksize, by convention expressed as a power of 2.
+*** cat
+:PROPERTIES:
+:ID:       EEC0E295-ACCB-494A-B427-17927EB1B437
+:END:
+:RESOURCES:
+[[file:~/Documents/dev/git/urbit/docs/docs/hoon/library/2c.md::###%20`++cat`][definition]]
+:END:
+Concatenates two atoms, `b` and `c`, according to block size `a`, producing an atom.
+
+*** face
+:PROPERTIES:
+:ID:       71B028AF-2290-485F-8FE7-B00F0C224044
+:BRAIN_FRIENDS: 6A633B48-5344-4DB9-AF29-C6EB8B71E657 D482CD66-1ED5-45BF-9774-E3DC13D089ED
+:BRAIN_PARENTS: FBE6BCD1-68BA-4FDB-A2E5-FBD37DFCE6D1 A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788
+:END:
+Faces are *limb expressions* and are like variables in certain respects. Most frequently, they are used as labels for limbs, most commonly affixed to a limb using the expression `face=value`.
+
+Faces _are not_ part of the underlying noun - they are stored as /metadata about address values/.
+
+There is _no_ restriction on duplicate faces, which makes them different from ordinary variables. We do a head first binary tree search when a face is evaluated, ending at the first match. Furthermore, children of legs with faces _are not_ searched.
+
+When you cast a noun with faces, the faces get thrown away. Faces are tracked by Hoon's type system, so faces are thrown away when types are thrown away.
+**** ^
+:PROPERTIES:
+:ID:       1100D95B-035D-4C13-A249-0003C1387A66
+:BRAIN_FRIENDS: 6A633B48-5344-4DB9-AF29-C6EB8B71E657 806E6445-9970-4558-8364-D54FC78B0117
+:END:
+
+Used in a conjunction with a face to specify that the first match found when evaluating the face should be skipped. Can be stacked. 
+
+#+begin_src hoon
+> a:[[[a=1 a=2] a=3] a=4]
+1
+
+> ^a:[[[a=1 a=2] a=3] a=4]
+2
+
+> ^^a:[[[a=1 a=2] a=3] a=4]
+3
+
+> ^^^a:[[[a=1 a=2] a=3] a=4]
+4
+#+end_src hoon
+
+Note that this means the entire limb referred to by the first matching face is skipped. So it is impossible to get to nested duplicate faces with `^` - one needs to use a wing.
+**** matching faces
+:PROPERTIES:
+:ID:       9724BA32-8541-4598-9C21-57F2371FDE67
+:END:
+There is no restriction against using the same face name for multiple limbs of the subject:
+
+#+begin_src hoon
+  > [[4 b=5] [b=6 b=[14 15]]]
+  [[4 b=5] b=6 b=[14 15]]
+
+  > b:[[4 b=5] [b=6 b=[14 15]]]
+  5
+#+end_src
+
+Why does this return `5` rather than `6` or `[14 15]`?  When a face is evaluated against a subject, a head-first binary tree search occurs starting at address `1` of the subject.  If there is no matching face at address `n`, first the head of `n` is searched and then `n`'s tail.
+
+The =^= symbol can be used to skip the first matching face by prepending it to the desired face. Note that this will skip the entire cell of the first matching face. Use the wing syntax to access the inner cells.
+
+*** Expressions
+:PROPERTIES:
+:ID:       E17A1B08-594A-4D14-9F27-3537D8CE16C0
+:END:
+
+**** Limb Expressions
+:PROPERTIES:
+:ID:       A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788
+:BRAIN_PARENTS: ECFEA2D3-C6AF-4929-96A0-EB5A8AB03DD5
+:BRAIN_FRIENDS: 057F2543-450C-4767-A0D2-A477C247BA12 6A633B48-5344-4DB9-AF29-C6EB8B71E657
+:BRAIN_CHILDREN: 6DC2B657-3535-4226-B4F4-A1C4930D6F7B 1C0D89CE-DDCC-4E08-B625-EB331C846D3D 56CA15E7-8F9A-4784-BBCA-E28A33DECA7A 025616CD-FAC1-49E9-B9FE-56422FF51A69 71B028AF-2290-485F-8FE7-B00F0C224044
+:END:
+
+
+
+***** Address-based
+:PROPERTIES:
+:ID:       2E5771AA-62F8-4156-9CC8-17CB93A28501
+:BRAIN_CHILDREN:
+:END:
+Limb expressions that evaluate to a limb of the subject based on the address.
+****** larks
+:PROPERTIES:
+:ID:       025616CD-FAC1-49E9-B9FE-56422FF51A69
+:BRAIN_CHILDREN: DC36D13B-7D95-40C1-8832-1D1B868BDC9F 1B3A29E6-76AD-421A-8FCF-173DE7D2A0C2
+:BRAIN_PARENTS: A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788
+:END:
+*Returns a leg*
+
+Composable expressions of the form (+, -, +>, +<, ->, -<, etc.) 
+
+You can think of this sort of lark series -- e.g., +>-< -- as indicating a binary tree path to a limb of the subject, starting from the root node of the tree. In the case of +>-< this path is: tail, tail, head, head.
+#+begin_example org
+        *Root*
+        /    \
+     Head   *Tail*
+            /    \
+         Head   *Tail*
+                /    \
+            *Head*   Tail
+            /    \
+        *Head*   Tail
+#+end_example
+
+******* >/<
+:PROPERTIES:
+:ID:       DC36D13B-7D95-40C1-8832-1D1B868BDC9F
+:BRAIN_PARENTS: 025616CD-FAC1-49E9-B9FE-56422FF51A69
+:END:
+`-<` returns the head of the head, while `->` returns the tail of the head. `+<` returns the head of the tail, while `+>` returns the tail of the tail.
+
+By alternating the `+`/`-` symbols with `<`/`>` symbols, you can grab an even more specific limb of the subject:
+
+#+begin_src hoon
+  > +>-:[[4 5] [6 [14 15]]]
+  14
+
+  > +>+:[[4 5] [6 [14 15]]]
+  15
+#+end_src
+
+******* -/+
+:PROPERTIES:
+:ID:       1B3A29E6-76AD-421A-8FCF-173DE7D2A0C2
+:BRAIN_PARENTS: 025616CD-FAC1-49E9-B9FE-56422FF51A69
+:END:
+Returns the head and tail of the subject respectively.
+
+To think of it another way, - is for the left and + is for the right. You can remember this by thinking of a number line -- the negative numbers are to the left, the positive numbers to the right. 
+
+Combine with `>/<` to get a more specific limb.
+****** .
+:PROPERTIES:
+:ID:       1C0D89CE-DDCC-4E08-B625-EB331C846D3D
+:BRAIN_PARENTS: A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788
+:END:
+*Returns a leg*
+
+Returns the entire subject. Equivalent to +1.
+****** +
+:PROPERTIES:
+:ID:       56CA15E7-8F9A-4784-BBCA-E28A33DECA7A
+:BRAIN_PARENTS: A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788
+:END:
+*Returns a leg*
+
+=+n= returns the limb of the subject at address =n=. 
+
+****** &/|
+:PROPERTIES:
+:ID:       6DC2B657-3535-4226-B4F4-A1C4930D6F7B
+:BRAIN_FRIENDS: EB8FC09B-FF1F-4169-8D72-A0420A060791
+:BRAIN_PARENTS: A0CC8D57-9EE7-4B5E-8DB7-1DD7D8299788
+:END:
+=&n= returns the nth noun of a list that has at least =n+1= nouns.
+
+#+begin_src hoon
+  > &1:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  'first'
+
+  > &2:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  'second'
+
+  > &3:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  'third'
+
+  > &4:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  'fourth'
+#+end_src
+
+`|n` returns everything after `&n`:
+
+#+begin_src hoon
+  > |1:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  ['second' 'third' 'fourth' 'fifth']
+
+  > |2:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  ['third' 'fourth' 'fifth']
+
+  > |3:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  ['fourth' 'fifth']
+
+  > |4:['first' 'second' 'third' 'fourth' 'fifth' ~]
+  'fifth'
+#+end_src
+
+We can give an alternate, recursive definition of &n for all positive integers n. In the base case, &1 is equivalent to +2. For the generating case, assume that &(n - 1) is equivalent to +k. Then &n is equivalent to +((k x 2) + 2).
+
+For example, let n be 4. What is &4? &3 is equivalent to +14. (14 x 2) + 2 is 30, so &4 is equivalent to +30.
+
+As with &n, we can characterize |n recursively. In the base case, |1 is +3. In the generating case, assume that |(n - 1) is equivalent to +k. Then |n is equivalent to +((k x 2) + 1).
+
+Notice the relationship to the 'doubling' we noticed in the tree addressing binary explanation. Doubling a tree address gives us the address of its head. and the recursive definition states that d
+***** Name-based
+:PROPERTIES:
+:ID:       FBE6BCD1-68BA-4FDB-A2E5-FBD37DFCE6D1
+:BRAIN_PARENTS: 057F2543-450C-4767-A0D2-A477C247BA12
+:BRAIN_CHILDREN: 71B028AF-2290-485F-8FE7-B00F0C224044
+:END:
+When an arm name is used as a limb expression, the arm is evaluated with its parent core as the subject.
+
+One might think that the names `add` and `mul` are faces for gates hidden away somewhere in the dojo subject.  This isn't so!  Each is the name of an arm which, when evaluated against its parent core, produces a gate.  What core is this?  For both `add` and `mul` it's the core you see at the context, `+7`, of the gate produced by `add`:
+
+#+begin_src hoon
+  > add
+  <1.vng {{a/@ b/@} <31.ohr 1.jmk $143>}>
+
+  > mul
+  <1.smm {{a/@ b/@} <31.ohr 1.jmk $143>}>
+#+end_src
+*** pole
+:PROPERTIES:
+:ID:       46078341-89B8-4716-B6FA-4A92F23B194E
+:END:
+Faceless list - a `++list` without the `i` and `t` faces.
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/library/1c.md::Faceless%20list][source]]
+*** cord
+:PROPERTIES:
+:ID:       D329F433-EE7C-4985-B5C6-BF2C94FAD781
+:BRAIN_FRIENDS: F9EFB83C-F57C-4176-B1D8-C74CBBC79C39
+:END:
+
+A string encoded as an atom.
+** Runes
+:PROPERTIES:
+:ID:       77987407-0002-4DC4-AA3F-F138A8D13D64
+:BRAIN_PARENTS: 5D07B6F3-4CD6-470A-8584-25AD22852275
+:END:
+:RESOURCES:
+
+- [[//Users/jake.miller/git/urbit-docs/reference/hoon-expressions/rune][docs directory]]
+:END:
+Runes are the main syntactical construct of Hoon. They are made up of two ASCII symbols and have their own pronunciation scheme.
+
+*** Pronunciation
+:PROPERTIES:
+:ID:       A6D7ACBA-39FD-4DD9-A3DD-B63F5C9846BC
+:END:
+ace  [1 space]       hep  -            rob  }
+ban  >               ket  ^            say  '
+bar  |               lac  [            sig  ~
+bat  \               led  <            tar  *
+bus  $               lit  (            tec  `
+cab  _               lob  {            tis  =
+cen  %               lus  +            vat  @
+col  :               mic  ;            wut  ?
+com  ,               net  /            yel  "
+dot  .               pad  &            zap  !
+gap  [>1 space, nl]  rac  ]
+hax  #               rit  )
+
+**** Old Pronunciation
+ace [1 space]   gal <               pal (
+bar |           gap [>1 space, nl]  par )
+bas \           gar >               sel [
+buc $           hax #               sem ;
+cab _           hep -               ser ]
+cen %           kel {               sig ~
+col :           ker }               soq '
+com ,           ket ^               tar *
+doq "           lus +               tec `
+dot .           pam &               tis =
+fas /           pat @               wut ?
+zap !
+*** Definitions
+:PROPERTIES:
+:ID:       12B675FF-1EA0-48A6-91DD-6BB98A86ABC1
+:END:
+:RESOURCES:
+- [[http://localhost:8443/docs/hoon/rune/][docs]]
+:END:
+**** sig
+:PROPERTIES:
+:ID:       DF6E8F79-CCAB-47FE-893D-DFFDB0C6C3B9
+:END:
+
+`~(arm door arg)` allows us to /curry/ functions. It generates the `arm` product after modifying the `door`'s sample to be `arg`.
+**** ket
+:PROPERTIES:
+:ID:       76C7AB13-42B4-4C44-BA5F-56A0F173176E
+:END:
+***** kettar (^*)
+      :PROPERTIES:
+      :ID:       4708E46C-3126-4C5B-9C76-1BD0843D1390
+      :END:
+Bunt value.
+***** ketlus (^+)
+      :PROPERTIES:
+      :ID:       7A1F5104-C4D1-427B-97D2-03870DECB466
+      :END:
+Typecast by inferred type. Fails with nest fail.
+***** kethep (^-)
+      :PROPERTIES:
+      :ID:       47DA9940-2977-4138-8424-DE81495E1E30
+      :BRAIN_FRIENDS: 806E6445-9970-4558-8364-D54FC78B0117
+      :END:
+Casting rune.
+
+Expands to ~^+(^*(p) q)~.
+***** ketbar (^|)
+:PROPERTIES:
+:ID:       303F7864-C324-4B82-93AF-508693C277E5
+:BRAIN_FRIENDS: 67A492F4-3114-49F7-9E61-26DF8031F085
+:END:
+`[%ktbr p=hoon]`: convert a gold core to an iron core (contravariant).
+
+- Produces
+
+`p` as an iron core; crash if not a gold core.
+
+- Syntax
+
+Regular: *1-fixed*.
+
+- Discussion
+
+An iron core is an opaque function (gate or door).
+
+Theorem: if type `x` nests within type `a`, and type `y` nests
+within type `b`, a core accepting `b` and producing `x` nests
+within a iron core accepting `y` and producing `a`.
+
+Informally, a function fits an interface if the function has a
+more specific result and/or a less specific argument than the
+interface.
+
+- Examples
+
+The prettyprinter shows the core metal (`.` gold, `|` iron):
+
+#+begin_src hoon
+~zod:dojo> |=(@ 1)
+<1.gcq [@  @n <250.yur 41.wda 374.hzt 100.kzl 1.ypj %151>]>
+~zod:dojo> ^|(|=(@ 1))
+<1|gcq [@  @n <250.yur 41.wda 374.hzt 100.kzl 1.ypj %151>]>
+#+end_src hoon
+
+
+**** buc
+:PROPERTIES:
+:ID:       F808B56D-9A4A-4738-91BA-4242F7E36718
+:BRAIN_FRIENDS: 83D66CCE-7509-48F3-ACF1-9E9172B4F3F3
+:END:
+
+A *mold* is a `gate` (function) that helps us build simple and
+rigorous data structures.  (In fact, since "mold" sounds nasty,
+we often call molds and mold builders "structures.")
+
+A correct mold is a *normalizer*: an idempotent function across
+all nouns.  If the sample of a gate has type `%noun`, and its
+body obeys the constraint that for any x, `=((mold x) (mold (mold
+x)))`, it's a normalizer and can be used as a mold.
+
+(Hoon is not dependently typed and so can't check idempotence
+statically, so we can't actually tell if a mold matches this
+definition perfectly.  This is not actually a problem.)
+
+Runes in the `$` family are macros designed for making molds.
+But any hoon may produce a mold. (This is why `model` is a
+synonym for `hoon`).
+
+Many macros *bunt* a mold, producing `^~(=>(mold $))`.  This
+produces a constant default value.  The formal range of a mold
+(the type of its bunt) is called its *icon*.
+
+Molds have two uses: defining simple and rigorous structures, and
+validating untrusted input data.  Validation, though very
+important, is a rare use case.  Except for direct raw input,
+it's generally a faux pas to rectify nouns at runtime -- or even
+in userspace.
+
+As a structure definition, a mold has three common uses.  One,
+we bunt it for a default value (such as the sample in a gate).
+Two, the product of some computation is cast to its icon, both
+checking the type and regularizing it.  Three, it's used as a
+building block in other molds.
+
+In any case, since molds are just functions, we can use
+functional programming to assemble interesting molds.  For
+instance, `(map foo bar)` is a table from mold `foo` to mold
+`bar`.  `map` is not a mold; it's a function that makes a mold.
+Molds and mold builders are generally described together.
+***** buccab ($_)
+:PROPERTIES:
+:ID:       5CD63308-C06D-485A-9C5B-6C237B2EE8DF
+:END:
+`[%bccb p=hoon]`: mold which normalizes to an example.
+
+- Expands to
+
+#+begin_src hoon
+|=(* p)
+#+end_src hoon
+
+- Syntax
+
+Regular: *1-fixed*.
+
+Irregular: `_foo` is `$_(foo)`.
+
+- Discussion
+
+`$_` ("buccab") discards the sample it's supposedly normalizing and
+produces its *example* instead.
+
+- Examples
+
+#+begin_src hoon
+~zod:dojo> =foo $_([%foobar %moobaz])
+
+~zod:dojo> (foo %foo %bar)
+[%foobar %moobaz]
+
+~zod:dojo> `foo`[%foobar %moobaz]
+[%foobar %moobaz]
+
+~zod:dojo $:foo
+[%foobar %moobaz]
+#+end_src hoon
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/rune/buc/cab.md::---][docs]]
+***** buchep ($-)
+:PROPERTIES:
+:ID:       67A492F4-3114-49F7-9E61-26DF8031F085
+:BRAIN_FRIENDS: 303F7864-C324-4B82-93AF-508693C277E5
+:END:
+`[%bchp p=model q=model]`: mold which normalizes to an example gate.
+
+- Expands to
+
+#+begin_src hoon
+$_  ^|
+|=(p $:q)
+#+end_src
+
+- Syntax
+
+Regular: *2-fixed*.
+
+- Discussion
+
+Since a `$-` ("buchep") is a `$_`, it is not useful for normalizing, just for typechecking.  In particular, the existence of `$-`s does *not* let us send gates or other cores over the network!
+
+#+begin_src hoon
+~zod:dojo> =foo $-(%foo %bar)
+
+~zod:dojo> ($:foo %foo)
+%bar
+
+#+end_src
+
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/rune/buc/hep.md::`%5B%25bchp%20p=model%20q=model%5D`:%20mold%20which%20normalizes%20to%20an%20example%20gate.][docs]]
+
+***** buccen ($%)
+:PROPERTIES:
+:ID:       F6F08619-CADC-40AF-9A85-B0D84E5F8AD6
+:END:
+Tagged union.
+
+***** buccol ($:)
+:PROPERTIES:
+:ID:       2568546F-28C6-406F-B0E2-8C40376B7B71
+:END:
+Form a mold which recognizes a tuple
+
+
+**** wut
+:PROPERTIES:
+:ID:       DDB65225-D919-4422-9043-DFFE0B10482F
+:END:
+***** wuttis (?=)
+:PROPERTIES:
+:ID:       3D8A4568-54A0-43E1-884D-EF7A199D2A36
+:END:
+
+`[%wtts p=model q=wing]`: test pattern match.
+
+*Produces* 
+
+`&` (yes) if the noun at `q` is in the icon of `p`;
+`|` (no) otherwise.
+
+*Syntax*
+
+Regular: *2-fixed*.
+
+## Discussion
+
+`?=` ("wuttis") is not as powerful as it might seem.  For instance, it
+can't generate a loop -- you cannot (and should not) use it to 
+test whether a `*` is a `(list @)`.  Nor can it validate atomic 
+auras.
+
+Patterns should be as weak as possible.  Unpack one layer of
+union at a time.  Don't confirm things the type system knows.
+
+For example, when matching a book containing a page `[%foo p=@
+q=[@ @]]`, the proper pattern is `[%foo *]`.  You have one
+question, which is whether the head of the noun is `%foo`.
+
+A common error is `find.$`, meainng `p` is not a mold.
+
+## Examples
+
+#+begin_src hoon
+~zod:dojo> =bar [%foo %bar %baz]
+~zod:dojo> ?=([%foo *] bar)
+%.y
+#+end_src
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/rune/wut/tis.md][definition]]
+***** wuthep (?-)
+:PROPERTIES:
+:ID:       584E93BF-FBBB-41EE-B3BB-76A47900770E
+:END:
+Switch against a union with no defaults
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/rune/wut/hep.md][definition]]
+***** wutlus (?+)
+:PROPERTIES:
+:ID:       986318FF-E512-4499-8F93-062191F16FE2
+:END:
+`[%wtls p=wing q=value r=(list (pair model value))]`: switch against a union, with a default.
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/rune/wut/lus.md::?.%20r][docs]]
+***** wutsig (?~)
+:PROPERTIES:
+:ID:       6537D107-2756-428E-8D51-4881E942939E
+:END:
+`[%wtsg p=wing q=hoon r=hoon]`: branch on whether a wing of the subject is null.
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/rune/wut/sig.md][definition]]
+***** wutcol (?:)
+:PROPERTIES:
+:ID:       7A0F325A-853B-4598-A1AD-18C24A5168C5
+:END:
+`[%wtcl p=hoon q=hoon r=hoon]`: branch on a boolean test.
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/rune/wut/col.md][definition]]
+**** col
+:PROPERTIES:
+:ID:       BB119619-8389-44DD-871F-853DCCBA3B7C
+:END:
+The `:` ("col") hoons, `:-` and friends, are simple and regular.
+All `:` hoons expand to `:-` ("colhep"), which makes a pair 
+(just like the Lisp [`cons`](https://en.wikipedia.org/wiki/Cons) operator).
+
+
+***** coltar (:*)
+:PROPERTIES:
+:ID:       6179DD79-0334-4386-9C5E-792BAF9C7449
+:END:
+:RESOURCES:
+[[file:~/Documents/dev/git/urbit/docs/docs/hoon/rune/col/tar.md::#%20`:*%20"coltar"`][definition]]
+:END:
+Construct an n-tuple.
+***** colhep (:-)
+:PROPERTIES:
+:ID:       AE70175E-4E17-4564-8911-53CEFFF68FF9
+:END:
+Produces a cell.
+
+Irregular: `[a b]` is `:-(a b)`.
+Irregular: `[a b c]` is `[a [b c]]`.
+Irregular: `a^b^c` is `[a b c]`.
+Irregular: `a/b` is `[%a b]`.
+Irregular: `` `a `` is `[~ a]`.
+Irregular: `~[a b]` is `[a b ~]`.
+Irregular: `[a b c]~` is `[[a b c] ~]`.
+
+**** bar
+:PROPERTIES:
+:ID:       10D128DC-674B-4F34-85C7-FE3D7CF5110B
+:END:
+:RESOURCES:
+:END:
+***** barcab (|_)
+:PROPERTIES:
+:ID:       297DBA68-DA1D-4172-B2B4-41AD62E212D5
+:BRAIN_FRIENDS: F506FAB9-2662-4DFE-9D69-27BA6820679A
+:END:
+Produces a door. Call with `%~`
+***** barcen (|%)
+:PROPERTIES:
+:ID:       41C90C6B-A3FC-4833-BA05-593398D14543
+:BRAIN_FRIENDS: 01D48B5C-160C-4E44-AAC8-0D27A125F688 EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08
+:END:
+`[%brcn p=(unit term) q=(map term tome)]`: The product of a `|%` expression is a dry core with one or more arms in the battery.
+
+The `|%` rune is followed by a series of arm definitions, each of which begins with a rune in the `+` family (most of `++`).  There must be at least one arm, but there may be arbitrarily many.  Each arm must include a name (`a`, `c`, and `e` above), which is followed by the expression (`b`, `d`, and `f` above) that defines the arm product.
+
+The core payload is the subject of the `|%` expression.
+
+
+***** bartis (|=)
+:PROPERTIES:
+:ID:       3F6D8800-2030-4AC7-9505-45F672088E34
+:BRAIN_FRIENDS: EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08 ED77147F-E0D2-432E-8AA9-0AFACF7A3696 B7E0101C-5736-47AA-9EBC-B2B60244E0B0
+:END:
+Forms a gate - a dry one armed [[brain-friend:EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08][core]] with sample.
+
+Expands to:
+#+begin_src hoon
+=|  p
+|%  ++  $  q
+--
+#+end_src
+
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/bar/tis.md][definition]]
+***** bartar (|*)
+:PROPERTIES:
+:ID:       24ECC450-4905-403E-BC05-F1AEB48795F9
+:END:
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/bar/tar.md][definition]]
+**** tis
+:PROPERTIES:
+:ID:       753454C7-B806-4A33-9520-BF31CCA62ED9
+:END:
+Defines flow. Flow hoons are the only hoons beside core hoons that change the subject. Other hoons pass the subject down unchanged. 
+
+***** tisbar (=|)
+:PROPERTIES:
+:ID:       ED77147F-E0D2-432E-8AA9-0AFACF7A3696
+:BRAIN_FRIENDS: 3F6D8800-2030-4AC7-9505-45F672088E34
+:END:
+`[%tsbr p=model q=value]`: combine a defaulted mold with the subject.
+Expands to `=+(*p q)`.
+
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/tis/bar.md][definition]]
+
+***** tisgar (=>)
+:PROPERTIES:
+:ID:       578ADADF-B6FF-4090-81A3-BD7EF6A7FC74
+:BRAIN_FRIENDS: 0F091CF4-CFE9-4E93-A9B2-7AB78A9A2AF2
+:END:
+
+`[%tsgr p=hoon q=hoon]`: compose two hoons.
+
+*Produces*
+
+`q`, compiled against the product of `p`.
+
+*Syntax*
+
+Regular: *2-fixed*.
+
+*Examples*
+
+#+begin_src hoon
+  ~zod:dojo> =>([a=1 b=2 c=3] b)
+  2
+  ~zod:dojo> =>((add 2 4) [. .])
+  [6 6]
+#+end_src
+***** tislus (=+)
+:PROPERTIES:
+:ID:       9B19A068-1DB1-4EAD-AC54-FB3B7097DE56
+:END:
+`[%tsls p=hoon q=hoon]`: combine a new noun with the subject.
+
+Expands to `=>([p .] q)` - evaluating the first subhoon gives us a new cell that the second subhoon is evaluated against.
+
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/tis/lus.md::#%20`=+%20"tislus"`][definition]]
+
+***** tisgal (=<)
+:PROPERTIES:
+:ID:       0F091CF4-CFE9-4E93-A9B2-7AB78A9A2AF2
+:BRAIN_FRIENDS: F506FAB9-2662-4DFE-9D69-27BA6820679A 578ADADF-B6FF-4090-81A3-BD7EF6A7FC74
+:END:
+`=>` with the subhoons reversed. 
+***** tiscom (=,)
+:PROPERTIES:
+:ID:       D8D9DEC2-BF56-4926-8CCE-8F140B01D442
+:BRAIN_FRIENDS: 57EB833A-C1EC-416D-9F48-745BF50E2283
+:END:
+Import from namespace. Mainly used to import arms from a `zuse.hoon`, the arvo stdlib.
+**** sem
+:PROPERTIES:
+:ID:       61C73306-F4A5-4766-A348-EC6C531BEC83
+:END:
+Macros
+
+***** semcol (;:)
+:PROPERTIES:
+:ID:       9D8B1EBC-5AF7-4923-9B64-0BCDE2297E44
+:END:
+call a binary function as an n-ary function.
+R: `;:(p q)`  
+I: `:(p q)`
+
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/irregular.md::I:%20`:(p%20q)`][definition]]
+**** cen
+:PROPERTIES:
+:ID:       17E04776-A3BC-45B6-A742-3A6820397C76
+:BRAIN_FRIENDS: 6A633B48-5344-4DB9-AF29-C6EB8B71E657 ECFEA2D3-C6AF-4929-96A0-EB5A8AB03DD5
+:END:
+Invocation family of runes.
+***** cenket (%^)
+:PROPERTIES:
+:ID:       FC174E86-0E6A-4C58-8EE6-855B035890C6
+:END:
+
+`[%cnkt p=hoon q=hoon r=hoon s=hoon]`: call with triple sample.
+
+- Expands to
+
+#+begin_src hoon
+%-(p [q r s])
+#+end_src hoon
+
+- Syntax
+
+Regular: *4-fixed*.
+
+- Examples
+
+#+begin_src hoon
+~zod:dojo> =add-triple |=([a/@ b/@ c/@] :(add a b c))
+~zod:dojo> %^(add-triple 1 2 3)
+6
+#+end_src hoon
+
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/cen/ket.md][definition]]
+***** centis (%=)
+:PROPERTIES:
+:ID:       A71FA7EF-A3FE-462A-A79E-66E81DC7DE50
+:BRAIN_FRIENDS: 057F2543-450C-4767-A0D2-A477C247BA12
+:END:
+`[%cnts p=wing q=(list (pair wing hoon))]`: take a wing with changes.
+
+Regular: *1-fixed*, then *jogging*.
+Irregular: `foo(x 1, y 2, z 3)` is `%=(foo x 1, y 2, z 3)`.
+
+Produces `p`, modified by the change list `q`. Since it produces a wing, the rules for the resolution of limb expressions must be taken into account.
+
+If `p` resolves to a leg, `q` is a list of changes to that leg.
+If `p` resolves to an arm, `q` is a list of changes to the core containing that arm (since arm resolution gives us the parent core).  We compute the arm on the modified core. This means that we need to get the /product/ of the arm (i.e the gate) in the function call definition, and not merely use `%=` on the arm name. Thus we need to use the `=` runes to get the product.
+
+
+
+***** censig (%~)
+:PROPERTIES:
+:ID:       F506FAB9-2662-4DFE-9D69-27BA6820679A
+:BRAIN_FRIENDS: 0F091CF4-CFE9-4E93-A9B2-7AB78A9A2AF2 297DBA68-DA1D-4172-B2B4-41AD62E212D5 3834F6C1-7DB2-4E75-BF1B-7EDE8B89F43C
+:END:
+`[%cnsg p=wing q=hoon r=(list hoon)]`: call with multi-armed door.
+
+Expands to:
+
+#+begin_src hoon
+  =+  a=q
+  =<(p %=(a +6 r))
+#+end_src
+
+`p` is the arm name and `q` is the door name. 
+
+This expansion uses the `=<` rune to compile `p` against the product of the wing representing the `q` door (pinned in the expansion because `%%=` requires a wing) with modifications. The modification is done with `%%=` and replaces the sample (recall that the sample is located at `+6`) with the given list of hoons. We can use `%~` to call a gate (see `%-%`), but most of its power comes from being used to pull arbitrary arms from doors that provide different versions of the functions based on the provided door sample. Also good for creating state machines.
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/cen/sig.md][definition]]
+***** cenhep (%-)
+:PROPERTIES:
+:ID:       4AD06831-F191-4E8D-A558-19CE19C4855A
+:BRAIN_FRIENDS: B7E0101C-5736-47AA-9EBC-B2B60244E0B0
+:END:
+Call a gate. Special case of `%~` that just pulls the `$` arm. 
+
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/cen/hep.md][definition]]
+***** cenlus (%+)
+:PROPERTIES:
+:ID:       06D1B686-2CC9-44F6-A3D8-4B19B26FFCEC
+:BRAIN_FRIENDS:
+:END:
+Call with pair sample
+
+Expands to `%-(p [q r])`
+[[file:~/Documents/dev/git/mars/urbit/docs/docs/hoon/rune/cen/lus.md::`%5B%25cnls%20p=hoon%20q=hoon%20r=hoon%5D`:%20call%20with%20pair%20sample.][definition]]
+** Type System
+:PROPERTIES:
+:ID:       806E6445-9970-4558-8364-D54FC78B0117
+:BRAIN_FRIENDS: 1100D95B-035D-4C13-A249-0003C1387A66 47DA9940-2977-4138-8424-DE81495E1E30
+:END:
+The intended data type is specified in the =^-= rune, which compares that data type's bunted value with the inferred type of the expression.
+
+Hoon uses the outermost cast to infer the type.
+
+Because every piece of Hoon data is a noun, everything nests under =*=.  When you cast to =*=, you can see the raw noun with cells as brackets and atoms as unsigned integers.
+
+
+*** Polymorphism
+:PROPERTIES:
+:ID:       35591A95-E60F-4F01-A6C7-C11E852E253C
+:BRAIN_FRIENDS: EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08 8D3AB576-B1F7-4BC4-B138-EC8DC22D58EE
+:END:
+:RESOURCES:
+[[file:~/Documents/dev/git/urbit/docs/docs/hoon/advanced.md::##%20`%25core`:%20advanced%20polymorphism][advanced polymorphism]]
+:END:
+In the Bertrand Meyer tradition of type theory, there are two forms of polymorphism: variance and genericity.  In Hoon this choice is per arm, which is why our battery went from `(map term hoon)` to `(map term foot)` when it went into the coil.  A `foot` is `%dry` or `%wet`.  Dry polymorphism relies on variance; wet polymorphism relies on genericity.
+
+The core type stores both the type of the current payload, and the type is was compiled against. The latter is found in the coil of the core.
+
+**** dry arms
+:PROPERTIES:
+:ID:       056D1A6D-B986-4542-ABC0-80A1CE4854FB
+:END:
+**** wet arms
+:PROPERTIES:
+:ID:       352EAB99-2E8A-4210-A0D9-56FCF26BE116
+:END:
+
+*** Cell Types
+:PROPERTIES:
+:ID:       14B44FF3-6E36-4340-A64E-F26F55DF0A4E
+:END:
+The =^=  is used to cast to a cell. 
+
+#+begin_src hoon
+  > ^-(^ [12 13])
+  [12 13]
+
+  > ^-(^ [[12 13] 14])
+  [[12 13] 14]
+
+  > ^-(^ [[12 13] [14 15 16]])
+  [[12 13] [14 15 16]]
+
+  > ^-(^ 123)
+  nest-fail
+
+  > ^-(^ 0x10)
+  nest-fail
+#+end_src
+
+Hoon only infers from =^= that the expression is a cell, and does not infer the type of the cell.
+
+Hoon pretty prints the cell type with braces.
+**** Casting
+:PROPERTIES:
+:ID:       833F8C5F-8D2C-41D9-AF9C-5D08B51A7EE8
+:END:
+Square brackets are used when casting a specific cell type.
+
+For example, if you want to cast for a cell in which the head and the tail must each be an atom, then simply cast using `[@ @]`:
+*** Aura
+:PROPERTIES:
+:ID:       444C823E-262C-4849-9624-16E9D32AC359
+:END:
+The piece of type information that determines how Hoon interprets an atom is called an /aura/.  An aura is indicated with `@` followed by some letters, e.g., `@ad` for unsigned decimal. 
+
+It's important to understand that Hoon's type system doesn't enforce auras as strictly as it does other types.  Auras are 'soft' types.
+
+Remember also that Hoon interprets the aura string in one way: auras specialize to the right.  For example, `@u` atoms are interpreted as unsigned integers; `@ux` atoms are interpreted as unsigned /hexadecimal/ integers.
+
+You can cast to a more general aura as long as the current aura is a subset of the cast aura. Thus, casting to =@= is a way of checking if two two nouns have the same aura.
+*** Constants
+:PROPERTIES:
+:ID:       EFF4ECB7-795A-4CAC-8650-B7F07F9A62A7
+:END:
+
+=%= specifies an atomic constant, where any constant is pretty printed to the console as =$=.
+
+Keep in mind that, underneath, `15` and `%15` are the same atom:
+
+#+begin_src hoon
+  > ^-(@ 15)
+  15
+
+  > ^-(@ %15)
+  15
+#+end_src
+
+
+But because they have different auras, `15` doesn't nest under the type for `%15`:
+
+#+begin_src hoon
+  > ^-(%15 15)
+  nest-fail
+#+end_src
+
+*** Names
+:PROPERTIES:
+:ID:       4DE9E01F-F069-4029-9FD2-1E8B6ADDFCB5
+:BRAIN_FRIENDS: 057F2543-450C-4767-A0D2-A477C247BA12
+:END:
+Names themselves are not stored in the noun of the subject. They're stored as metadata in the type information of the subject. 
+** Libraries
+:PROPERTIES:
+:ID:       35E19DAF-38FE-4295-8650-E749E7D13BBA
+:END:
+
+*** hoon.hoon
+:PROPERTIES:
+:ID:       C381FF19-C13B-42D7-866E-F908BC0FF341
+:END:
+Main hoon library. Defines many of the functions in the language.
+**** molds and mold builders
+:PROPERTIES:
+:ID:       EEB17719-7E14-4136-8989-06685FE8E759
+:BRAIN_FRIENDS: 83D66CCE-7509-48F3-ACF1-9E9172B4F3F3
+:BRAIN_CHILDREN:
+:END:
+***** trel
+:PROPERTIES:
+:ID:       41BB3683-8835-4727-BCC0-6D3936C152AB
+:END:
+mold generator: produces a tuple of the three types passed in.
+
+[[file:~/Documents/dev/git/mars/arvo/sys/hoon.hoon::++%20trel][source]]
+*** jo
+:PROPERTIES:
+:ID:       735CA3FD-2139-4FAC-82C1-7C9039C9E3BF
+:BRAIN_FRIENDS: 0BFA0ADB-A70A-41B8-B5E6-D6FC34AD2056
+:END:
+Handles json parsing.
+
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/library/zuse/core/jo.md::?:%20=(-.-.wer%20p.n.p.jon)][source]]
+**** ot
+:PROPERTIES:
+:ID:       0708108A-82D2-4328-85BC-AA04A2C083CF
+:END:
+Parses an object into a tuple.
+
+#+begin_src hoon
+      ++  ot                                                ::  object as tuple
+        |*  wer=(pole ,[cord fist])
+        |=  jon=json
+        ?.  ?=([%o *] jon)  ~
+        =+  raw=((ot-raw wer) p.jon)
+        ?.((za raw) ~ (some (zp raw)))
+      ::
+#+end_src hoon
+
+**** grub
+:PROPERTIES:
+:ID:       86B856AB-6BF3-4481-B478-C4672599CA01
+:END:
+A unit of some json value.
+**** fist
+:PROPERTIES:
+:ID:       59D4DE9D-5ABC-4889-A8D7-AF84D656A9C5
+:END:
+A gate that produces a grub.
+*** zuse
+:PROPERTIES:
+:ID:       0BFA0ADB-A70A-41B8-B5E6-D6FC34AD2056
+:BRAIN_FRIENDS: 735CA3FD-2139-4FAC-82C1-7C9039C9E3BF
+:END:
+:RESOURCES:
+:END:
+Zuse is the Arvo standard library.
+[[file:~/Documents/dev/git/mars/docs/docs/hoon/library/zuse][zuse libraries]]
+* Runtime
+:PROPERTIES:
+:ID:       66905EF6-153F-4D46-8AB2-B8426C13696B
+:END:
+** Jets
+:PROPERTIES:
+:ID:       330955C7-906E-4CF3-9473-436EAFBCDDBD
+:END:
+
+* arvo
+:PROPERTIES:
+:ID:       57EB833A-C1EC-416D-9F48-745BF50E2283
+:BRAIN_CHILDREN: 2C506A41-0AB5-4A0A-AD6A-7806087EA828
+:BRAIN_FRIENDS: D8D9DEC2-BF56-4926-8CCE-8F140B01D442
+:END:
+- The /OS/ of urbit.
+- At a high level, takes a mess of unix events and cleans them up for the programmer.
+- Has the ability to update itself
+- Is essentially the container for vanes (the kernel modules that make up arvo)
+** Molds
+:PROPERTIES:
+:ID:       63EEF9CC-4C1C-414D-B13B-5D594CA7F004
+:BRAIN_FRIENDS: 83D66CCE-7509-48F3-ACF1-9E9172B4F3F3
+:BRAIN_CHILDREN: CE1BFA8E-D714-4DB2-88E7-21C619FF4E18 AB286566-FC30-4279-8860-65CF3E71A2FA 70A9D2D1-D0BD-430F-ADF1-2CA0922D45AE EF5AB47C-D574-4D67-B9E7-4A9E37E8E112 C8E534D4-4AE3-49D3-96FF-90A505A4114F
+:END:
+** Etymology
+:PROPERTIES:
+:ID:       D96CA9E4-476D-41EE-8213-64657084D653
+:END:
+Arvo is the singular ablative form of arvum, which means 'farmland'. So arvo is the land we work using vanes. Clever.
+
+** How it works
+:PROPERTIES:
+:ID:       87FEFA89-0781-460F-AD43-C9DB6DC1FAAD
+:END:
+When the terminal receives an unix event, arvo grabs it, looks at it and determines where it should go, and then sends it. It puts wires in ducts when necessary during this process.
+
+** Terminology
+:PROPERTIES:
+:ID:       7B479272-C179-428D-B685-C9480B79D920
+:END:
+*** duct
+:PROPERTIES:
+:ID:       EF5AB47C-D574-4D67-B9E7-4A9E37E8E112
+:BRAIN_PARENTS: 63EEF9CC-4C1C-414D-B13B-5D594CA7F004
+:BRAIN_FRIENDS: C8E534D4-4AE3-49D3-96FF-90A505A4114F 70A9D2D1-D0BD-430F-ADF1-2CA0922D45AE
+:END:
+The arvo casual stack. This is used to keep track of every event's cause.
+
+The first element in the path is the first letter of whichever vane handled that step in the computation, or the empty span for unix.
+
+List of wires.
+
+#+begin_src hoon
+  ~[
+    /g/a/~zod/4_shell_terminal/u/time
+    /g/a/~zod/shell_terminal/u/child/4/main
+    /g/a/~zod/terminal/u/txt
+    /d/term-mess
+    //term/1
+  ]
+#+end_src
+**** Etymology
+:PROPERTIES:
+:ID:       7377963D-4086-422F-8C78-1718DD0CAE80
+:END:
+A duct is defined to be a "a tube or passageway that houses cables, air,
+etc". So it makes that sense that a duct is a list of wires in the urbit language.
+*** wire
+:PROPERTIES:
+:ID:       C8E534D4-4AE3-49D3-96FF-90A505A4114F
+:BRAIN_PARENTS: 63EEF9CC-4C1C-414D-B13B-5D594CA7F004
+:BRAIN_FRIENDS: EF5AB47C-D574-4D67-B9E7-4A9E37E8E112
+:END:
+Paths. Used in ducts.
+**** Etymology
+:PROPERTIES:
+:ID:       5760F3E5-CEF4-4896-9AF6-607DE71E0713
+:BRAIN_FRIENDS:
+:END:
+Things travel along wires, so to get to the source of a wire, all we have to do
+is follow it. 
+
+*** bone
+:PROPERTIES:
+:ID:       70A9D2D1-D0BD-430F-ADF1-2CA0922D45AE
+:BRAIN_FRIENDS: EF5AB47C-D574-4D67-B9E7-4A9E37E8E112 AB286566-FC30-4279-8860-65CF3E71A2FA
+:BRAIN_PARENTS: 63EEF9CC-4C1C-414D-B13B-5D594CA7F004
+:END:
+Opaque reference to a [[brain-friend:EF5AB47C-D574-4D67-B9E7-4A9E37E8E112][duct]] - it represents the "causes" of a move and is essentially a call stack.
+*** card
+:PROPERTIES:
+:ID:       CE1BFA8E-D714-4DB2-88E7-21C619FF4E18
+:BRAIN_FRIENDS: AB286566-FC30-4279-8860-65CF3E71A2FA 04DCDE3D-D157-4566-8852-0EDD08E821CD
+:BRAIN_PARENTS: 63EEF9CC-4C1C-414D-B13B-5D594CA7F004
+:END:
+`(pair term noun)`
+
+Represents data in a [[brain-friend:AB286566-FC30-4279-8860-65CF3E71A2FA][move]]. They are [[brain:2C506A41-0AB5-4A0A-AD6A-7806087EA828][vane]] specific and each vane defines a protocol for interacting with other vanes through four different card types - tasks, gifts, notes, and signs.
+*** move
+:PROPERTIES:
+:ID:       AB286566-FC30-4279-8860-65CF3E71A2FA
+:BRAIN_PARENTS: 63EEF9CC-4C1C-414D-B13B-5D594CA7F004
+:BRAIN_FRIENDS: CE1BFA8E-D714-4DB2-88E7-21C619FF4E18 04DCDE3D-D157-4566-8852-0EDD08E821CD 70A9D2D1-D0BD-430F-ADF1-2CA0922D45AE B0354860-7DB4-4CE6-A3DA-5E468934A806
+:END:
+A combination of message data and metadata that is processed by [[brain-parent:57EB833A-C1EC-416D-9F48-745BF50E2283][arvo]]. A move is a message that we send when we want to interact with the rest of the system, and an Arvo move is Arvo's equivalent of a system call. 
+
+Vanes and apps communicate through moves that are translated into arvo level moves by something like gall. For example, an app might want to make a web request through eyre - it would do so by emitting a move indicating that it wants to make a request of the `eyre` vane which is picked up by arvo and translated to an arvo move.
+
+An arvo move looks like this: `[duct term args]`, where `term` is a `%%pass` or `%%give`.
+
+Definition in `arvo.hoon`:
+
+#+begin_src hoon
+++  arvo  (wind {p/term q/mill} mill)                   ::  arvo card
+#+end_src
+
+**** pass
+:PROPERTIES:
+:ID:       D7F382E0-2356-4C8C-8739-BA4AE595D3DB
+:END:
+`[duct %pass return-path=path vane-name=@tD data=card]`
+
+Analogous to a call. Pushes the return path onto the duct and sends the given data to the specified vane. Response will come along the same duct with the specified return path. 
+
+
+**** give
+:PROPERTIES:
+:ID:       05B60768-5399-4868-A43C-03AA4342C084
+:END:
+`[duct %give data=card]`
+
+Analogous to a return. Pops the top path off the duct and sends the given card back to the caller.
+** Concepts
+:PROPERTIES:
+:ID:       2160A18B-6654-489A-8CE7-30E3D631AAE0
+:END:
+
+*** vanes
+:PROPERTIES:
+:ID:       2C506A41-0AB5-4A0A-AD6A-7806087EA828
+:BRAIN_CHILDREN: C6B48F2F-2361-4A6F-B101-488A52F4B861 9361DF06-806C-41C2-A88F-4D238DB89F9D
+:BRAIN_PARENTS: 57EB833A-C1EC-416D-9F48-745BF50E2283
+:END:
+
+The 'kernel modules' of arvo.
+
+**** dill
+:PROPERTIES:
+:ID:       5419A053-3C4F-4A14-AC4C-705C487DE9DF
+:END:
+The terminal module. 
+***** Etymology
+:PROPERTIES:
+:ID:       A9750A4E-1545-4B94-95CC-8D9374891ABF
+:END:
+Dill was used in the middle ages to defend against witchcraft and
+enchantments, and is also a soothing medicinal herb. Could be the possible
+origins - we use the dill vane to clean up all all the messy unix events we
+receive so that the programmer can calmly deal with them.
+**** Etymology
+:PROPERTIES:
+:ID:       799C0B96-CF6B-48AC-8219-619D2716A558
+:END:
+A vane is the part of a rotating axis *that makes up and is part of the whole machine*. So we could think of arvo as that rotating axis, with these kernel modules attached.
+
+**** Protocol
+:PROPERTIES:
+:ID:       04DCDE3D-D157-4566-8852-0EDD08E821CD
+:BRAIN_FRIENDS: AB286566-FC30-4279-8860-65CF3E71A2FA CE1BFA8E-D714-4DB2-88E7-21C619FF4E18
+:END:
+Cards are the vane-specific portion of a move. Each vane defines a protocol for interacting with other vanes (via Arvo) by defining four types of cards: taskes, gifts, notes, and signs.
+
+When one vane is `%pass`ed a card in its `++task`, Arvo activates the `++call` gate with the card as its argument. To produce a result, the vane `%give`s one of the cards defined in its `++gift`. If the vane needs to request something of another vane, it `%pass`es it a `++note` card. When that other vane returns a result, Arvo activates the `++take` gate of the initial vane with one of the cards defined in its `++sign`.
+
+In other words, there are only four ways of seeing a move: (1) as a request seen by the caller, which is a ++note. (2) that same request as seen by the callee, a `++task`. (3) the response to that first request as seen by the callee, a `++gift`. (4) the response to the first request as seen by the caller, a `++sign`.
+
+When a `++task` card is passed to a vane, Arvo calls its `++call` gate, passing it both the card and its duct. This gate must be defined in every vane. It produces two things in the following order: a list of moves and a possibly modified copy of its context. The moves are used to interact with other vanes, while the new context allows the vane to save its state. The next time Arvo activates the vane it will have this context as its subject.
+
+This overview has detailed how to pass a card to a particular vane. To see the cards each vane can be `%pass`ed as a `++task` or return as a `++gift` (as well as the semantics tied to them), each vane's public interface is explained in detail in its respective overview.
+***** engines
+:PROPERTIES:
+:ID:       1B161C85-8232-4DD8-A0DB-F939FD1A70AA
+:BRAIN_FRIENDS: 42487851-36DD-4B1A-8949-6027C896B182 5251324C-E93D-40A2-BED9-C9476F480F30
+:END:
+Engines are defined per vane in the [[file:~/Documents/dev/git/mars/arvo/sys/zuse.hoon::::%20%25zuse%20is%20two%20nested%20cores:%20the%20first%20for%20models][zuse]] library. The engines of any vane are available at `engine:vane`. For example, eyre's able engine is available at `able:eyre`. 
+***** task
+:PROPERTIES:
+:ID:       42487851-36DD-4B1A-8949-6027C896B182
+:BRAIN_FRIENDS: 1B161C85-8232-4DD8-A0DB-F939FD1A70AA
+:END:
+A `task` is the replacement for the old `kiss`. Each vane defines the type of cards that trigger its `++call` gate as a separate `task` in the vane's `able` engine. 
+***** sign
+:PROPERTIES:
+:ID:       953C3507-E2CF-4A2E-AB8E-C90F3BE7B810
+:END:
+***** gift
+:PROPERTIES:
+:ID:       08A8ED6D-B734-49A4-B526-715BC022E26A
+:BRAIN_FRIENDS: 5251324C-E93D-40A2-BED9-C9476F480F30
+:END:
+A vane defines each card it can produce in response to a `task` as a `gift`. 
+***** note
+:PROPERTIES:
+:ID:       0D928A4D-605D-4748-8984-D815F1629F5B
+:BRAIN_FRIENDS: 18C7CC7A-48FC-484D-AFF2-0F6101A3BBB2
+:END:
+A vane defines the types of cards it passes to other vanes in its `++note` arm. 
+***** kiss
+:PROPERTIES:
+:ID:       051DF050-4319-4C81-A9AC-A84AE18CB463
+:END:
+_DEPRECATED_
+
+kisses have been replaced by tasks. See [[file:~/Documents/dev/git/mars/arvo/lib/old-zuse.hoon::++%20kiss-ames%20task:able:ames%20::%20in%20request%20->$][old-zuse]].
+
+A vane defines the types of cards that trigger its `++call` gate in its `++kiss` arm.
+
+
+**** eyre
+:PROPERTIES:
+:ID:       8A0BE5CA-F3DC-44DA-A8ED-DD3CA8123E9B
+:END:
+The http server.
+
+[[file:~/Documents/dev/git/mars/docs/docs/arvo/internals/eyre.md::Unix%20sends%20http%20messages%20to%20`%25eyre`,%20and%20`%25eyre`%20produces%20http%20messages][docs]]
+***** eyre signs
+:PROPERTIES:
+:ID:       7CD01623-65C2-4A18-8CB4-B87F7E5BC296
+:END:
+***** eyre notes
+:PROPERTIES:
+:ID:       18C7CC7A-48FC-484D-AFF2-0F6101A3BBB2
+:BRAIN_FRIENDS: 0D928A4D-605D-4748-8984-D815F1629F5B
+:END:
+***** eyre gifts
+:PROPERTIES:
+:ID:       5251324C-E93D-40A2-BED9-C9476F480F30
+:BRAIN_FRIENDS: 08A8ED6D-B734-49A4-B526-715BC022E26A 1B161C85-8232-4DD8-A0DB-F939FD1A70AA
+:END:
+eyre's gifts are defined in the `++able:eyre` arm in `zuse`.
+**** gall
+:PROPERTIES:
+:ID:       9361DF06-806C-41C2-A88F-4D238DB89F9D
+:BRAIN_PARENTS: 2C506A41-0AB5-4A0A-AD6A-7806087EA828
+:END:
+- agent execution
+- The app engine of urbit. 
+- Communicates via the arvo protocol, with moves and cards.
+  + Each gall app defines its own move/card molds.
+***** Gall arms
+:PROPERTIES:
+:ID:       08CF8417-88DA-4A04-8326-17A66268A650
+:BRAIN_CHILDREN: 61CE2D1A-FCAF-4716-AE5D-E0568CB95D37
+:END:
+Gall is organized through its arms, which delineate gall by functional group.
+****** mo:gall
+:PROPERTIES:
+:ID:       D6E81B23-39C5-4FD5-9C4F-FEBE4CB8BAC9
+:END:
+- Move handling to and from Arvo.
+******* ap:mo:gall
+:PROPERTIES:
+:ID:       61CE2D1A-FCAF-4716-AE5D-E0568CB95D37
+:BRAIN_PARENTS: 08CF8417-88DA-4A04-8326-17A66268A650
+:BRAIN_FRIENDS: EC6ED43F-8A26-4D30-A54E-DF9DC6E20B08 263BFB9D-3B2B-4621-9470-78409356FA0E 5EFFF0A1-F2DB-47F4-B882-48B34431EB49
+:END:
+Routes internal moves to and from agents. Called by `mo`, and not accessible outside of `mo`.
+***** Apps
+:PROPERTIES:
+:ID:       CB723EF2-846D-42A1-BB3F-3F9D991D316B
+:BRAIN_FRIENDS: 0440A4AA-D27F-43E7-8234-62D1A392588C
+:END:
+Apps in urbit are built through `gall`, which exposes an API that userspace applications interact with through a specific set of named arms: `+poke`, `+coup`, `+peer`, `+reap`, `+quit`, `+peek`, `+prep`, `+scry`, and `+wake`. 
+****** App arms
+:PROPERTIES:
+:ID:       329FCBCF-659A-45FC-B34F-2976F3699C3D
+:BRAIN_FRIENDS: 0440A4AA-D27F-43E7-8234-62D1A392588C
+:END:
+******* wake
+:PROPERTIES:
+:ID:       BE9D5F02-C590-4BD1-B948-3E90F26FFEBA
+:END:
+******* scry
+:PROPERTIES:
+:ID:       D425AEE8-98FE-415B-888B-26CD35DD2748
+:END:
+******* prep
+:PROPERTIES:
+:ID:       73E34D16-D8D5-4D25-ABEB-9D1CD3C211B3
+:END:
+******* peek
+:PROPERTIES:
+:ID:       9900E149-2BAA-4392-9F2E-91D26BA8BD19
+:END:
+******* quit
+:PROPERTIES:
+:ID:       387591B4-1403-4BDF-B6AA-D0A9BA9F7A39
+:END:
+******* reap
+:PROPERTIES:
+:ID:       FF931A44-F6B9-46F4-B879-A5261A4EE7A1
+:END:
+******* peer
+:PROPERTIES:
+:ID:       89D20585-201A-4C18-B1A4-56B071319676
+:END:
+******* coup
+:PROPERTIES:
+:ID:       93A7B0F6-69D4-4194-B655-1EDB88BF7BCD
+:END:
+******* poke
+:PROPERTIES:
+:ID:       7AA610D2-B5BA-4205-A8B1-92DC003D3CDE
+:END:
+***** Gall cards
+:PROPERTIES:
+:ID:       4385B0C2-6171-4AD0-894F-2E24DB1B5390
+:END:
+***** Gall moves
+:PROPERTIES:
+:ID:       B0354860-7DB4-4CE6-A3DA-5E468934A806
+:BRAIN_FRIENDS: AB286566-FC30-4279-8860-65CF3E71A2FA
+:END:
+Gall defines two moves - `move` and `internal-move`. The former is equivalent to an arvo level move, and the latter is the same as the former, but routed by `bone` instead of `duct`.
+
+#+begin_src hoon
+::  +internal-move: agent-level move
+::
+::    Analogous to an Arvo move, except these are routed by bone, instead of
+::    duct.
+::
+++  internal-move
+  $:  =bone
+      move=(wind internal-note internal-gift)
+  ==
+::  +move: Arvo-level move
+::
+++  move
+  $:  =duct
+      move=(wind note-arvo gift-arvo)
+  ==
+#+end_src
+***** etymology
+:PROPERTIES:
+:ID:       B447BC5E-6736-4200-ABD9-095C7CA3C9FC
+:END:
+- Foreigner in scottish gaelic, from latin term Gaul meaning the first strangers
+  to be visited by the Irish in pre-roman / Roman times
+- Gall is used to create permanent ink. Maybe that's the link to messaging?
+**** clay
+:PROPERTIES:
+:ID:       C6B48F2F-2361-4A6F-B101-488A52F4B861
+:BRAIN_FRIENDS:
+:BRAIN_PARENTS: 2C506A41-0AB5-4A0A-AD6A-7806087EA828
+:END:
+Revision controlled filesystem. A typed git with continuous sync.
+
+Event log is already persistent, so clay is not really needed by arvo.
+
+- Benefits
+  - filesystem tree
+  - built in revision control
+  - typed!
+***** desk
+:PROPERTIES:
+:ID:       C207E5C1-15AE-46B9-BD38-45325AD7A0DF
+:END:
+A desk is a series of numbered commits, the most recent of which represents the
+current state of the desk.
+
+They are 'branches' that are independently revision controlled. An individual
+urbit has one or more of these.
+
+Traditionally, an urbit has at least a base and a home desk. The base desk has
+all the system software from the distribution. the home desk is a fork of base
+with all the stuff specific to the user of the urbit.
+****** commit
+:PROPERTIES:
+:ID:       B98FC0AA-FB5D-448A-8716-FC91172FB71A
+:END:
+A commit is composed of (1) an absolute time when it was created, (2) a list of
+zero or more parents, and (3) a map from paths to data.
+*** marks
+:PROPERTIES:
+:ID:       A5F06B90-BF46-4FF9-87AE-DF70F70F5698
+:END:
+- Molds that validate untrusted network data.
