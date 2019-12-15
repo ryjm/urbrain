@@ -11,7 +11,7 @@
 - [[#troubleshooting][Troubleshooting]]
 
 * Description
-=org-brain= files for urbit.
+=org-brain= (https://github.com/Kungsgeten/org-brain) files for urbit.
 
 + Download and install org-brain.
 + Might update this later with instructions. Might not.
